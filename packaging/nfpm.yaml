@@ -1,0 +1,76 @@
+# Builds the .deb, .rpm, Arch and Alpine packages with nFPM (https://nfpm.goreleaser.com).
+# The release workflow sets VERSION from the git tag (v1.2.3 -> 1.2.3).
+#   VERSION=0.1.0 nfpm package -f packaging/nfpm.yaml -p deb -t dist/
+name: taskscope
+version: ${VERSION}
+release: "1"
+arch: all                     # pure Python: one package for every CPU
+platform: linux
+section: admin
+priority: optional
+maintainer: Shantil-K <shantil.khadatkar@gmail.com>
+description: |
+  Lightweight task manager and system monitor for Linux.
+  Processes, performance graphs, services, startup apps, installed apps,
+  drivers, connections, power and frequencies, and disk usage. Reads /proc
+  and /sys directly and works across distributions.
+vendor: Taskscope
+homepage: https://github.com/Shantil-K/Taskscope
+license: GPL-3.0-or-later
+
+contents:
+  - src: ./taskscope
+    dst: /usr/lib/taskscope/taskscope
+    type: tree
+  - src: ./packaging/taskscope
+    dst: /usr/bin/taskscope
+    file_info: {mode: 0755}
+  - src: ./data/io.github.taskscope.Taskscope.desktop
+    dst: /usr/share/applications/io.github.taskscope.Taskscope.desktop
+  - src: ./data/io.github.taskscope.Taskscope.metainfo.xml
+    dst: /usr/share/metainfo/io.github.taskscope.Taskscope.metainfo.xml
+  - src: ./data/taskscope.svg
+    dst: /usr/share/icons/hicolor/scalable/apps/taskscope.svg
+  - src: ./data/taskscope.1
+    dst: /usr/share/man/man1/taskscope.1
+  - src: ./README.md
+    dst: /usr/share/doc/taskscope/README.md
+  - src: ./LICENSE
+    dst: /usr/share/licenses/taskscope/LICENSE
+
+scripts:
+  postinstall: ./packaging/scripts/postinstall.sh
+  preremove: ./packaging/scripts/preremove.sh
+  postremove: ./packaging/scripts/postremove.sh
+
+# Python 3.8+ is required; a Qt binding gives the window (without one,
+# Taskscope runs in the terminal). Each format names its own packages.
+overrides:
+  deb:
+    depends:
+      - python3 (>= 3.8)
+      - python3-pyqt6 | python3-pyside6.qtwidgets | python3-pyqt5
+    recommends:
+      - pciutils
+      - kmod
+      - iproute2
+  rpm:
+    depends:
+      - python3 >= 3.8
+      # Fedora/RHEL and openSUSE name the bindings differently
+      - (python3-pyqt6 or python3-PyQt6 or python3-pyside6 or python3-qt5 or python3-PyQt5)
+    recommends:
+      - pciutils
+      - kmod
+  archlinux:
+    depends:
+      - python
+      - python-pyqt6
+    suggests:                 # pacman shows these as optional dependencies
+      - pciutils
+      - kmod
+      - iproute2
+  apk:
+    depends:
+      - python3
+      - py3-pyqt6

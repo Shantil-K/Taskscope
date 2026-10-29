@@ -113,9 +113,9 @@ if [ "$DEPS" -eq 1 ]; then
         fi
         # Optional helpers. Each has a fallback inside Taskscope, so failures are fine.
         case "$PM" in
-            emerge) OPT="sys-apps/pciutils sys-apps/kmod sys-apps/iproute2 media-video/ffmpeg" ;;
-            dnf|yum) OPT="pciutils kmod iproute ffmpeg|ffmpeg-free" ;;
-            *) OPT="pciutils kmod iproute2|iproute ffmpeg" ;;
+            emerge) OPT="sys-apps/pciutils sys-apps/kmod sys-apps/iproute2" ;;
+            dnf|yum) OPT="pciutils kmod iproute" ;;
+            *) OPT="pciutils kmod iproute2|iproute" ;;
         esac
         for group in $OPT; do
             # shellcheck disable=SC2086

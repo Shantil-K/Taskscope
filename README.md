@@ -32,6 +32,18 @@ To force one, set `TASKSCOPE_QT=pyqt5` (or another binding name).
 
 ## Install
 
+**Packages:** download the one for your distro from
+[Releases](https://github.com/Shantil-K/Taskscope/releases/latest):
+
+| Distro | Install with |
+|---|---|
+| Debian, Ubuntu, Linux Mint | `sudo apt install ./taskscope_*_all.deb` |
+| Fedora, RHEL, openSUSE | `sudo dnf install ./taskscope-*.noarch.rpm` (openSUSE: `sudo zypper install`) |
+| Arch, Manjaro | `sudo pacman -U taskscope-*-any.pkg.tar.zst` |
+| Alpine | `sudo apk add --allow-untrusted taskscope_*_noarch.apk` |
+
+**From source**, on any distro:
+
 ```sh
 ./install.sh            # current user, into ~/.local (dependencies via your package manager)
 ./install.sh --system   # everyone, into /usr/local
@@ -65,6 +77,21 @@ Keyboard: `Ctrl+1…9` switch pages, `F5` refresh, `F12` screensaver,
 `Ctrl+N` run a command, `Ctrl+Shift+R` start/stop recording data, `Ctrl+O`
 replay a recording, `Ctrl+P` pause.
 Launching Taskscope again raises the window that is already open.
+
+## Making a release
+
+Packages are built by GitHub Actions (`.github/workflows/release.yml`, using
+nFPM with `packaging/nfpm.yaml`). Set the new version in
+`taskscope/__init__.py`, commit, then push a matching tag:
+
+```sh
+git tag v0.2.0 && git push origin v0.2.0
+```
+
+The workflow runs the tests, builds the .deb, .rpm, Arch and Alpine packages and a
+source tarball, checks that the .deb installs and runs, and publishes them all as
+a GitHub Release. To try a build without releasing, run "Release packages" by
+hand from the Actions tab.
 
 ## Look
 

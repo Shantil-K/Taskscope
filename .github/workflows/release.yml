@@ -1,0 +1,98 @@
+# Builds Taskscope's packages and publishes them as a GitHub Release.
+#
+#   Release:  bump __version__ in taskscope/__init__.py, commit, then
+#             git tag v0.2.0 && git push origin v0.2.0
+#   Test run: Actions tab > "Release packages" > Run workflow
+#             (builds everything and keeps it as a downloadable artifact; no release)
+name: Release packages
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write            # needed to create the release
+
+env:
+  NFPM_VERSION: "2.48.0"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Work out the version
+        run: |
+          code_version=$(python3 -c "import taskscope; print(taskscope.__version__)")
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            version="${GITHUB_REF_NAME#v}"
+            if [ "$version" != "$code_version" ]; then
+              echo "::error::Tag ${GITHUB_REF_NAME} does not match __version__ = ${code_version} in taskscope/__init__.py"
+              exit 1
+            fi
+          else
+            version="$code_version"
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "Building Taskscope $version"
+
+      - name: Run the tests
+        run: python3 -m unittest discover -s tests -v
+
+      - name: Install nFPM
+        run: |
+          f="nfpm_${NFPM_VERSION}_Linux_x86_64.tar.gz"
+          base="https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}"
+          curl -sSLO "$base/$f"
+          curl -sSLO "$base/checksums.txt"
+          grep " $f\$" checksums.txt | sha256sum -c -
+          tar xzf "$f" nfpm
+          sudo install -m 755 nfpm /usr/local/bin/nfpm
+
+      - name: Build packages
+        run: |
+          mkdir -p dist
+          for format in deb rpm archlinux apk; do
+            nfpm package -f packaging/nfpm.yaml -p "$format" -t dist/
+          done
+          git archive --format=tar.gz --prefix="taskscope-${VERSION}/" \
+            -o "dist/taskscope-${VERSION}.tar.gz" HEAD
+          cd dist && sha256sum * > SHA256SUMS && cat SHA256SUMS
+
+      - name: Check the .deb installs and runs
+        run: |
+          sudo apt-get install -y ./dist/taskscope_*_all.deb
+          taskscope --version
+          taskscope --check
+
+      - name: Keep the files (manual runs)
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: taskscope-${{ env.VERSION }}-packages
+          path: dist/
+
+      - name: Publish the release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > notes.md <<EOF
+          ## Install
+
+          | Distro | File | Command |
+          |---|---|---|
+          | Debian, Ubuntu, Linux Mint, Pop!_OS | \`taskscope_${VERSION}-1_all.deb\` | \`sudo apt install ./taskscope_${VERSION}-1_all.deb\` |
+          | Fedora, RHEL, openSUSE | \`taskscope-${VERSION}-1.noarch.rpm\` | \`sudo dnf install ./taskscope-${VERSION}-1.noarch.rpm\` (openSUSE: \`sudo zypper install\`) |
+          | Arch, Manjaro, EndeavourOS | \`taskscope-${VERSION}-1-any.pkg.tar.zst\` | \`sudo pacman -U taskscope-${VERSION}-1-any.pkg.tar.zst\` |
+          | Alpine | \`taskscope_${VERSION}-r1_noarch.apk\` | \`sudo apk add --allow-untrusted taskscope_${VERSION}-r1_noarch.apk\` |
+          | Anything else | \`taskscope-${VERSION}.tar.gz\` | unpack, then \`./install.sh\` |
+
+          Each package pulls in Python 3 and a Qt binding. Check downloads against \`SHA256SUMS\`.
+          EOF
+          gh release create "${GITHUB_REF_NAME}" dist/* \
+            --title "Taskscope ${VERSION}" \
+            --notes-file notes.md \
+            --generate-notes

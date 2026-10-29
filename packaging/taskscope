@@ -1,0 +1,3 @@
+#!/bin/sh
+# Launcher installed by the Taskscope packages as /usr/bin/taskscope
+PYTHONPATH="/usr/lib/taskscope${PYTHONPATH:+:$PYTHONPATH}" exec python3 -m taskscope "$@"
