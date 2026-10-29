@@ -16,6 +16,7 @@ permissions:
 
 env:
   NFPM_VERSION: "2.48.0"
+  PYTHONDONTWRITEBYTECODE: "1"   # no __pycache__ from the tests ends up in the packages
 
 jobs:
   build:
@@ -53,6 +54,7 @@ jobs:
 
       - name: Build packages
         run: |
+          find taskscope -name __pycache__ -type d -prune -exec rm -rf {} +
           mkdir -p dist
           for format in deb rpm archlinux apk; do
             nfpm package -f packaging/nfpm.yaml -p "$format" -t dist/
@@ -63,6 +65,9 @@ jobs:
 
       - name: Check the .deb installs and runs
         run: |
+          if dpkg-deb -c dist/taskscope_*_all.deb | grep -q __pycache__; then
+            echo "::error::compiled Python files ended up in the package"; exit 1
+          fi
           sudo apt-get install -y ./dist/taskscope_*_all.deb
           taskscope --version
           taskscope --check
