@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.taskscope.Taskscope</id>
+  <name>Taskscope</name>
+  <summary>Lightweight system monitor and task manager</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <description>
+    <p>
+      Taskscope shows processes, performance graphs, installed and startup
+      applications, users, services and drivers. It works across Linux
+      distributions by detecting what each one provides and falling back to
+      alternatives, and runs in a terminal when no GUI toolkit is available.
+    </p>
+  </description>
+  <launchable type="desktop-id">io.github.taskscope.Taskscope.desktop</launchable>
+  <provides>
+    <binary>taskscope</binary>
+  </provides>
+  <content_rating type="oars-1.1"/>
+</component>

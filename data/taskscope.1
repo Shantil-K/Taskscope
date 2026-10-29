@@ -1,0 +1,49 @@
+.TH TASKSCOPE 1 "October 2026" "Taskscope 0.1.0" "User Commands"
+.SH NAME
+taskscope \- lightweight task manager and system monitor for Linux
+.SH SYNOPSIS
+.B taskscope
+[\fIoption\fR]
+.SH DESCRIPTION
+Taskscope shows running processes, performance graphs for the processor,
+memory, disks, network adapters and graphics adapters, plus installed
+applications, startup applications, users, services and kernel drivers.
+It reads the kernel's /proc and /sys files directly and uses whatever tools
+the distribution provides for everything else, falling back to alternatives
+when one is missing.
+.PP
+With a display and a Qt binding (PySide6, PyQt6, PyQt5 or PySide2) it opens a
+window; otherwise it runs as a terminal application. One window runs per
+user; starting the program again raises it.
+.SH OPTIONS
+.TP
+.B \-\-tui
+Use the terminal interface.
+.TP
+.B \-\-check
+Print the backends detected on this system and exit.
+.TP
+.B \-\-remote [\-\-host ADDR] [\-\-port N]
+Serve a read-only, token-protected summary page without opening a window.
+.TP
+.B \-\-screensaver [\-root | \-window\-id ID] [\-\-audio]
+Run the live-load screensaver.
+.TP
+.B \-\-register\-screensaver [\-\-no\-open]
+Add the screensaver to ~/.xscreensaver.
+.TP
+.B \-\-reset\-settings
+Delete the settings file and exit.
+.TP
+.B \-\-self\-test
+Exercise every backend (and the GUI when available); exit 0 on success.
+.SH FILES
+.TP
+.I ~/.config/taskscope/settings.json
+Settings.
+.SH ENVIRONMENT
+.TP
+.B TASKSCOPE_QT
+Force a Qt binding: pyside6, pyqt6, pyqt5 or pyside2.
+.SH LICENSE
+GNU General Public License version 3 or later.

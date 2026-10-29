@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Application
+Name=Taskscope
+GenericName=Task Manager
+Comment=Lightweight system monitor and task manager
+Exec=taskscope
+Icon=taskscope
+Terminal=false
+Categories=System;Monitor;
+Keywords=process;task;monitor;cpu;memory;kill;service;
+StartupWMClass=Taskscope
+Actions=Screensaver;
+
+[Desktop Action Screensaver]
+Name=Start screensaver
+Exec=taskscope --screensaver
