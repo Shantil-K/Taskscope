@@ -1,147 +1,148 @@
-# Taskscope
+<p align="center">
+  <img src="docs/images/logo.png" width="112" alt="Taskscope logo">
+</p>
 
-A lightweight, open-source task manager and system monitor for Linux that
-works across distributions. It reads the kernel's `/proc` and `/sys` files
-directly. For anything the kernel doesn't expose, it uses whatever tools the
-distro ships and falls back to an alternative when one is missing.
+<h1 align="center">Taskscope</h1>
 
-## Features
+<p align="center">
+  <b>A fast, friendly task manager for Linux.</b><br>
+  See what your computer is doing and take control of it, on any distro.
+</p>
 
-| Page / feature | What it does | Backends (tried in order) |
-|---|---|---|
-| Home | One-glance dashboard: LED meters (CPU, clock, temperature, GPU), CPU graph with temperature and kernel time, busiest processes, memory graph, and pressure / network / disk / GPU cards. Adapts to the window: columns, rows and cards drop out as it gets smaller | same as Performance + `/proc/pressure` |
-| Processes | Parent/child tree or flat list with heat-map CPU/memory cells, details panel for the selected process; end/kill/suspend/resume, set priority, open file location, properties | `/proc` (no psutil needed) |
-| System Info | Your distribution's logo plus sections for Hardware Overview, Processor, Memory, Graphics, Storage, Power, Firmware, Network, Operating System, Data Sources, Capabilities and Snapshot (live Property/Value trees, copy one or all) | `/proc`, `/sys`, `/sys/class/dmi`, os-release + icon theme for the logo, `lspci` (optional) |
-| Power & Freq | Sensor tree grouped by device (processor, GPUs, memory, drives, battery, other chips) with live value plus min/max: clocks, load, temperatures, fans, power (RAPL, battery, GPU), governor and platform profile | `/sys/class/hwmon`, cpufreq, powercap, power_supply; GPU via the Performance backends |
-| Connections | TCP/UDP sockets with application, service name (HTTPS, DNS, …), exposure (all interfaces / loopback / local network / internet), PID and user | `/proc/net/*` + fd scan (only while the page is open) |
-| Disk Space | Disk usage analyser: scan a drive or folder, then explore it as a folder tree with % of parent, a file-type list, a colour treemap (click to find, hover for details, highlight a type), and a File View that searches names or paths (wildcards too) and finds duplicates; export to CSV, move items to the Trash | GNU `find` on all cores → Python `os.scandir`; hard links counted once. Experimental (Settings, off by default): as administrator on ext2/3/4, read directory blocks and inode tables straight from the device (read-only, ~1.2× faster) |
-| Performance | Overview (cards with live graphs for every device; click one for details), then live graphs for CPU (per core), memory, each disk, each network adapter, each GPU (with dedicated memory) | `/proc`, `/sys`; GPUs: NVML → `nvidia-smi` → amdgpu sysfs → i915/xe sysfs |
-| Installed Apps | Every desktop app with its logo, size on disk, version, publisher, source (deb, rpm, pacman, apk, xbps, Portage, eopkg, Flatpak, Snap or plain desktop entry), scope and command; summary counts including total space used (shared packages counted once); launch apps (as you, even from the administrator window); uninstall with the package manager that installed it, after showing what will be removed (apt and pacman list every dependent package too) and asking you to confirm; optionally all other packages too | `.desktop` files + your icon theme; package databases read directly (dpkg, rpm, pacman, apk, xbps, Portage, eopkg), nix; Flatpak, Snap; removal via apt / dnf / zypper / pacman / apk / xbps / eopkg / emerge / flatpak / snap |
-| Startup apps | Enable/disable autostart entries and systemd user units | XDG autostart (per-user override, never edits `/etc`); unit files |
-| Users | Sessions with per-user CPU/memory totals | `loginctl` → `who` |
-| Services | List, start, stop, restart, enable, disable | systemd → OpenRC → s6 → runit → SysV `service` |
-| Drivers | Every kernel module (loaded, not loaded, built-in, out-of-tree) with summary counts, filters and a details panel (description, dependencies, devices, file path) | `/proc/modules`, `/sys/module`, `modules.dep`, `modules.builtin`, `/sys/bus`; `modinfo` for the selected module (optional) |
-| Run as administrator | Elevated copy of the app / privileged actions | pkexec → kdesu / lxqt-sudo / gksudo → sudo + askpass → doas/sudo in a terminal |
-| Recordings | Record Taskscope's data (performance + every process, each second) to a compressed file and replay it later in Summary, Performance, Processes and Users, with pause, seek and up to 30× speed | gzip JSON lines in `~/.local/share/taskscope/recordings` (~20 MB/hour) |
-| Screensaver (F12) | Live-load animation, optionally sound-reactive; XScreenSaver support | QPainter (no OpenGL needed); audio via `parec` → `pw-record` |
-| Remote summary | Read-only live web page, token-protected, localhost by default | Python standard library |
-| Terminal mode | Processes / performance / services in curses | used automatically with no display or no Qt |
+<p align="center">
+  <a href="https://github.com/Shantil-K/Taskscope/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/Shantil-K/Taskscope?color=22c55e"></a>
+  <a href="LICENSE"><img alt="License: GPL v3" src="https://img.shields.io/badge/license-GPL--3.0-3b82f6"></a>
+  <img alt="Linux" src="https://img.shields.io/badge/platform-Linux-a855f7">
+  <img alt="Python 3.8+" src="https://img.shields.io/badge/python-3.8%2B-f59e0b">
+</p>
 
-GUI toolkit: **PySide6 → PyQt6 → PyQt5 → PySide2**, whichever the distro has.
-To force one, set `TASKSCOPE_QT=pyqt5` (or another binding name).
+<p align="center">
+  <a href="https://github.com/Shantil-K/Taskscope/releases/latest"><b>Download</b></a> ·
+  <a href="#screenshots">Screenshots</a> ·
+  <a href="#what-it-can-do">Features</a> ·
+  <a href="#install">Install</a>
+</p>
+
+<p align="center">
+  <img src="docs/images/demo.gif" alt="Taskscope in action: the Home dashboard, live performance graphs, processes, installed apps and disk space" width="900">
+  <br>
+  <sub><a href="docs/images/demo.mp4">▶ Watch the demo in full quality (MP4)</a></sub>
+</p>
+
+## Why Taskscope?
+
+- **Everything in one window.** Processes, live graphs, services, startup apps,
+  installed apps, drivers, network connections and disk usage.
+- **Light on your computer.** It reads the kernel's own files directly instead of
+  running other programs, and it uses about 2–3 % of one CPU core even while
+  minimised.
+- **Works on your distro.** Ubuntu, Mint, Debian, Fedora, openSUSE, Arch,
+  Alpine, Void, Gentoo, Solus… When a tool is missing, Taskscope falls back to
+  another way of getting the same information.
+- **Free and open source**, under the GNU GPL v3.
+
+## Screenshots
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/home.png" alt="Home dashboard"><br><b>Home:</b> the whole system at a glance. Click a graph to go back in time.</td>
+    <td width="50%"><img src="docs/images/performance-overview.png" alt="Performance overview"><br><b>Performance:</b> live graphs for the CPU, memory, disks, network and every GPU.</td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/processes.png" alt="Processes"><br><b>Processes:</b> a tree of everything running, with end, kill, pause and priority.</td>
+    <td><img src="docs/images/performance-cpu.png" alt="CPU per core"><br><b>CPU:</b> one graph per core, plus speed, temperature and load.</td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/installed-apps.png" alt="Installed apps"><br><b>Installed Apps:</b> every app with its size. Launch or uninstall it from here.</td>
+    <td><img src="docs/images/disk-space.png" alt="Disk space"><br><b>Disk Space:</b> find out what's filling your drive, with a colour map of every file.</td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><img src="docs/images/light-theme.png" alt="Light theme" width="60%"><br><b>Themes:</b> dark, light and seven more, with any accent colour.</td>
+  </tr>
+</table>
+
+## What it can do
+
+**Watch your system**
+- **Home:** CPU, memory, temperature, GPU and the busiest apps on one screen,
+  with a few minutes of history you can click back through.
+- **Performance:** live graphs for the CPU (overall or per core), memory, each
+  disk, each network adapter and each GPU (NVIDIA, AMD and Intel).
+- **Power & Freq:** clock speeds, temperatures, fans and power use for every
+  sensor.
+- **Connections:** which apps are talking to the network, and to where.
+
+**Take control**
+- **Processes:** end, kill, pause or re-prioritise anything, and see its details.
+- **Services** and **Startup apps:** start, stop, enable or disable them.
+- **Installed Apps:** see what's installed and how much space it takes. Launch
+  or uninstall apps with the package manager that installed them.
+- **Run as administrator** when you need to see or change everything.
+
+**Dig deeper**
+- **Disk Space:** scan a drive or folder, explore it as a tree or a colour map,
+  find duplicate files and move what you don't need to the Trash.
+- **Recordings:** record what your system does, then replay it later, like a
+  video of your system's activity.
+- **System Info** and **Drivers:** your hardware, distro and every kernel module.
+
+**Little extras**: a mini monitor that floats above other windows, a live icon
+in the notification area, a screensaver, a read-only web page you can check
+from your phone, and a terminal mode for when there's no desktop.
+
+All the details, and how each page reads your system, are in
+[docs/FEATURES.md](docs/FEATURES.md).
 
 ## Install
 
-**Packages:** download the one for your distro from
-[Releases](https://github.com/Shantil-K/Taskscope/releases/latest):
+Download the package for your distro from the
+[latest release](https://github.com/Shantil-K/Taskscope/releases/latest), then:
 
-| Distro | Install with |
+| Distro | Command |
 |---|---|
-| Debian, Ubuntu, Linux Mint | `sudo apt install ./taskscope_*_all.deb` |
-| Fedora, RHEL, openSUSE | `sudo dnf install ./taskscope-*.noarch.rpm` (openSUSE: `sudo zypper install`) |
-| Arch, Manjaro | `sudo pacman -U taskscope-*-any.pkg.tar.zst` |
+| Ubuntu, Linux Mint, Debian, Pop!_OS | `sudo apt install ./taskscope_*_all.deb` |
+| Fedora, RHEL | `sudo dnf install ./taskscope-*.noarch.rpm` |
+| openSUSE | `sudo zypper install ./taskscope-*.noarch.rpm` |
+| Arch, Manjaro, EndeavourOS | `sudo pacman -U taskscope-*-any.pkg.tar.zst` |
 | Alpine | `sudo apk add --allow-untrusted taskscope_*_noarch.apk` |
 
-**From source**, on any distro:
+Then open **Taskscope** from your app menu, or run `taskscope`.
 
-```sh
-./install.sh            # current user, into ~/.local (dependencies via your package manager)
-./install.sh --system   # everyone, into /usr/local
-./install.sh --no-deps  # just copy files
-taskscope --check       # show what was detected on this machine
-```
+**Any other distro:** download the source, then run `./install.sh`. It
+installs what Taskscope needs with your package manager. Or just try it
+without installing: `python3 -m taskscope` in the source folder.
 
-Supported package managers: apt, dnf/yum, zypper, pacman, apk, xbps, emerge
-and eopkg. For each dependency the installer tries every known package name
-until one works. If no Qt binding can be installed, Taskscope runs in the
-terminal. Only Python 3.8+ is required.
+## Tips
 
-Remove with `./uninstall.sh` (add `--purge` to delete settings too).
+- Press `Ctrl+1` … `Ctrl+9` to jump between pages, and `Ctrl+F` to filter any list.
+- Some details, like other users' disk activity, need **Run as administrator**
+  (Settings → Actions).
+- Pick a theme and accent colour with the **Theme** button at the bottom of the
+  sidebar.
+- More shortcuts and the command-line options are in
+  [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#keyboard-shortcuts).
 
-You can also run it straight from the source folder: `python3 -m taskscope`.
+## Contributing
 
-## Command line
+Bug reports and pull requests are welcome. See
+[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for running from source, the tests,
+and how releases are made.
 
-```
-taskscope                       GUI (or terminal mode when there is no display / Qt)
-taskscope --tui                 terminal mode
-taskscope --check               detected backends
-taskscope --remote [--host H] [--port N]   summary web page without a window
-taskscope --screensaver [-root | -window-id ID] [--audio]
-taskscope --register-screensaver
-taskscope --reset-settings
-taskscope --self-test
-```
+## License
 
-Keyboard: `Ctrl+1…9` switch pages, `F5` refresh, `F12` screensaver,
-`Ctrl+N` run a command, `Ctrl+Shift+R` start/stop recording data, `Ctrl+O`
-replay a recording, `Ctrl+P` pause.
-Launching Taskscope again raises the window that is already open.
+Taskscope is free software under the **GNU GPL v3 or later**. See
+[LICENSE](LICENSE).
 
-## Making a release
+<details>
+<summary>About its origin</summary>
 
-Packages are built by GitHub Actions (`.github/workflows/release.yml`, using
-nFPM with `packaging/nfpm.yaml`). Set the new version in
-`taskscope/__init__.py`, commit, then push a matching tag:
+Taskscope is an independent project written from scratch. It contains no code,
+icons, artwork or names from any proprietary task manager, and it wasn't made by
+decompiling or disassembling one. It is **not affiliated with Task Manager TMOG
+or Plummers' Software LLC**, and it doesn't use or interact with their program,
+licence keys or servers.
 
-```sh
-git tag v0.2.0 && git push origin v0.2.0
-```
-
-The workflow runs the tests, builds the .deb, .rpm, Arch and Alpine packages and a
-source tarball, checks that the .deb installs and runs, and publishes them all as
-a GitHub Release. To try a build without releasing, run "Release packages" by
-hand from the Actions tab.
-
-## Look
-
-A dark (or light) Windows 11-style layout: icon sidebar that collapses to
-icons only, large page titles with the page's controls in the header, a
-details panel under the process tree, and a status footer with a record
-button. Icons and the logo are drawn by Taskscope itself, and fonts come from
-your system (Segoe UI or Selawik if installed, otherwise Inter, Noto Sans,
-Cantarell, Ubuntu or DejaVu Sans). Themes: Dark, Light, Midnight blue, Graphite,
-Forest, Ocean, Rose, Paper, High contrast, or Follow system; pick one from
-the Theme button or in Settings. The Theme button's Colors popup also sets
-the accent colour (presets or any colour), how graphs are coloured (per device,
-accent only, or greyscale), saturation, glow on graph lines, and row density.
-
-## Low overhead by design
-
-* One timer drives everything. While the window is minimised or hidden it
-  keeps sampling (so graphs and Home's history have no holes) but draws nothing.
-* The process list, the most expensive reading, is only sampled while a page
-  that shows it is open.
-* Per tick, each process costs one read of `/proc/<pid>/stat` (and `io` for
-  your own processes). Name, command line, executable and owner are cached.
-* No external program runs on a timer. NVIDIA GPUs are read through NVML
-  in-process. Addresses, mounts and login sessions are cached for 10 s.
-* Tables sort and filter in Python and only repaint the visible rows. Graph
-  backgrounds are cached as images.
-* The disk analyser only reads the disk when you press Scan. It splits the
-  tree into batches that several worker processes scan at once (one `find`
-  run per batch), so all CPU cores share the work. Results are
-  kept in compact arrays (about 130 bytes per file) and dropped on the
-  next scan.
-* Slow lists (packages, services, drivers) load once, in a worker thread,
-  when the page is first opened. systemd unit states come from the unit
-  files on disk, not `systemctl list-unit-files`.
-
-## Licensing and origin
-
-Taskscope is free software under the **GNU GPL v3 or later** (see `LICENSE`).
-
-It is an independent, clean-room project. It was written from scratch,
-using only the public descriptions of what a task manager does. It contains
-no code, binaries, icons, fonts, artwork, names or trademarks from any
-proprietary task manager, and it was not made by decompiling or
-disassembling one. In particular it is **not affiliated with Task Manager
-TMOG or Plummers' Software LLC**. Their licence forbids redistributing their
-software, presenting it as your own, or bypassing its PRO access controls,
-and Taskscope does none of those things. It doesn't use or interact with
-their program, licence keys or servers.
-
-Runtime dependencies keep their own licences: Qt bindings (PyQt: GPL v3 /
-commercial; PySide: LGPL v3 / commercial). These are compatible with
-Taskscope's GPL v3. Optional external tools (nvidia-smi, lspci, etc.) run as
-separate programs and are not distributed with Taskscope.
+Qt bindings keep their own licences (PyQt: GPL v3 / commercial; PySide: LGPL
+v3 / commercial), which are compatible with Taskscope's. Optional tools such as
+`nvidia-smi` and `lspci` run as separate programs and aren't included.
+</details>
