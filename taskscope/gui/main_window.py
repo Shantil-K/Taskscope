@@ -541,11 +541,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self._show_page(idx)
 
     def open_page(self, cls):
+        """Show the page of class *cls*, with its sidebar entry highlighted
+        (pages without one, like Settings, leave nothing highlighted)."""
         for i, p in enumerate(self.pages):
             if isinstance(p, cls):
-                self.nav.clearSelection()
-                self.nav.setCurrentItem(None)
-                self._show_page(i)
+                item = next((it for it in self.nav_items if it.data(USER) == i), None)
+                if item is not None:
+                    self.nav.setCurrentItem(item)       # also shows the page
+                    if self.stack.currentIndex() != i:
+                        self._show_page(i)
+                else:
+                    self.nav.clearSelection()
+                    self.nav.setCurrentItem(None)
+                    self._show_page(i)
                 return
 
     def toggle_settings(self):
