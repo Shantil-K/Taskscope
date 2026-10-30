@@ -80,7 +80,8 @@ def _self_test(gui):
             from .gui.main_window import MainWindow
             app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([APP_NAME])
             win = MainWindow(dict(settings.DEFAULTS))
-            for i in range(len(win.pages)):
+            win.save_on_close = False
+            for i in range(win.page_count()):
                 win.open_index(i)
                 app.processEvents()
                 win.tick()
@@ -120,7 +121,20 @@ def _remote_only(host, port):
     return 0
 
 
+def _set_process_name(name=b"taskscope"):
+    """Show up as "taskscope" in task managers and `ps`, not "python3"
+    (the kernel's process name, /proc/<pid>/comm, max 15 characters)."""
+    try:
+        import ctypes
+        libc = ctypes.CDLL(None, use_errno=True)
+        PR_SET_NAME = 15
+        libc.prctl(PR_SET_NAME, ctypes.c_char_p(name), 0, 0, 0)
+    except (OSError, AttributeError):
+        pass                                 # not Linux / no prctl: keep the default name
+
+
 def main(argv=None):
+    _set_process_name()
     argv = sys.argv[1:] if argv is None else argv
     if argv and argv[0] == "--screensaver":
         from .gui.screensaver import run_standalone

@@ -151,8 +151,8 @@ class SettingsPage(QtWidgets.QWidget):
                                                          ("Normal: every second", 1000),
                                                          ("Slow: every 2 seconds", 2000),
                                                          ("Very slow: every 5 seconds", 5000)])
-        pages = [("Last page used", "last")] + [(p.title, p.title) for p in self.win.pages
-                                                 if p.title != "Settings"]
+        pages = [("Last page used", "last")] + [(c.title, c.title) for c in self.win.page_classes
+                                                 if c.title != "Settings"]
         self.combo(lay, "start_page", "Start on", pages)
         self.toggle(lay, "show_self", "Show Taskscope in the process list")
         self.toggle(lay, "cpu_per_core", "Per-core CPU figures for processes",

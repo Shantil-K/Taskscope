@@ -54,6 +54,7 @@ def label(key):
     return "Follow system" if key == "system" else THEMES.get(key, ("Dark",))[0]
 
 current = dict(DARK)
+_fusion_set = False
 
 FONT_CHOICES = ("Segoe UI Variable Text", "Segoe UI", "Selawik", "Inter", "Noto Sans",
                 "Cantarell", "Ubuntu", "DejaVu Sans")
@@ -175,7 +176,13 @@ def apply(theme, font_family="", font_size=10.0, accent="", density="normal"):
     installed font automatically."""
     global current
     app = QtWidgets.QApplication.instance()
-    app.setStyle("Fusion")
+    # Each of these restyles every widget in the window (seconds once all the pages
+    # exist), so only call the ones whose value actually changed.
+    # (once a style sheet is set, app.style() is a nameless wrapper, so remember it here)
+    global _fusion_set
+    if not _fusion_set:
+        app.setStyle("Fusion")
+        _fusion_set = True
     if theme == "system":
         pref = _desktop_prefers_dark()
         if pref is None:
@@ -204,12 +211,16 @@ def apply(theme, font_family="", font_size=10.0, accent="", density="normal"):
             pal.setColor(E(QtGui.QPalette, "ColorRole", role), QtGui.QColor(col))
         except AttributeError:
             pass
-    app.setPalette(pal)
+    if pal != app.palette():
+        app.setPalette(pal)
     fam = font_family or pick_font()
     f = QtGui.QFont(fam) if fam else QtGui.QFont(app.font())
     f.setPointSizeF(float(font_size or 10))
-    app.setFont(f)
-    app.setStyleSheet(qss(c) + _branch_qss(c) + _indicator_qss(c))
+    if f != app.font():
+        app.setFont(f)
+    sheet = qss(c) + _branch_qss(c) + _indicator_qss(c)
+    if sheet != app.styleSheet():
+        app.setStyleSheet(sheet)
 
 
 def _indicator_qss(c):

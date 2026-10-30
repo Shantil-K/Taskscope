@@ -1048,11 +1048,10 @@ class HomePage(QtWidgets.QWidget):
 
     def _open_process(self, pid):
         from . import pages
-        for i, pg in enumerate(self.win.pages):
-            if isinstance(pg, pages.ProcessesPage):
-                self.win.open_index(i)
-                ix = pg.model.index_of(pid)
-                if ix.isValid():
-                    pg.view.setCurrentIndex(ix)
-                    pg.view.scrollTo(ix)
-                return
+        self.win.open_page(pages.ProcessesPage)
+        pg = self.win.page_of(pages.ProcessesPage)
+        if pg is not None:
+            ix = pg.model.index_of(pid)
+            if ix.isValid():
+                pg.view.setCurrentIndex(ix)
+                pg.view.scrollTo(ix)

@@ -67,9 +67,10 @@ class _CurrentStack(QtWidgets.QStackedWidget):
         super().__init__()
         self.currentChanged.connect(lambda *_: self.updateGeometry())
 
-    def add_page(self, page):
+    def add_page(self, page, index=None):
         """Add a page inside a scroll area: a page that needs more room than
-        the window has scrolls, instead of enlarging the window."""
+        the window has scrolls, instead of enlarging the window. With *index*,
+        the page takes the place of the placeholder there."""
         sa = QtWidgets.QScrollArea()
         sa.setWidgetResizable(True)
         sa.setFrameShape(E(QtWidgets.QFrame, "Shape", "NoFrame"))
@@ -77,7 +78,7 @@ class _CurrentStack(QtWidgets.QStackedWidget):
         sa.viewport().setAutoFillBackground(False)
         sa.setWidget(page)
         sa.page = page
-        self.addWidget(sa)
+        replace_widget(self, sa, index)
 
     def currentWidget(self):
         w = super().currentWidget()
@@ -101,6 +102,20 @@ class _CurrentStack(QtWidgets.QStackedWidget):
             return QtCore.QSize(max(200, m.width()), max(150, m.height()))
         w = self.currentWidget()             # header toolbars: what the current one needs
         return w.minimumSizeHint() if w is not None else super().minimumSizeHint()
+
+
+def replace_widget(stack, w, index=None):
+    """Append *w* to a QStackedWidget, or put it in place of the widget at *index*."""
+    if index is None:
+        stack.addWidget(w)
+        return
+    old = stack.widget(index)
+    current = stack.currentIndex() == index
+    stack.insertWidget(index, w)
+    stack.removeWidget(old)
+    old.deleteLater()
+    if current:
+        stack.setCurrentIndex(index)
 
 
 def _overflow_bar(tb):
@@ -277,7 +292,11 @@ class MainWindow(QtWidgets.QMainWindow):
         body.addLayout(right, 1)
 
         # ---- pages ---------------------------------------------------
-        self.pages = []
+        # Pages are built the first time they are opened (building all of them
+        # took seconds at launch). self.page_classes has one entry per stack index;
+        # self._built holds the page once it exists.
+        self.page_classes = []
+        self._built = []
         self.nav_items = []
         for section, classes in pages.NAV:
             if section:
@@ -294,7 +313,11 @@ class MainWindow(QtWidgets.QMainWindow):
                 self._add_page(cls, nav=True)
         self._menus()                              # before Settings, which shows them as buttons
         self._add_page(pages.SettingsPage, nav=False)
-        self.stack.min_page = next((p for p in self.pages if isinstance(p, pages.PerformancePage)), None)
+        # Home and Performance keep their history even while hidden, and Performance
+        # sets the window's minimum size, so these two are built straight away.
+        for cls in (pages.HomePage, pages.PerformancePage):
+            self.page_of(cls)
+        self.stack.min_page = self.page_of(pages.PerformancePage, build=False)
         if self.stack.min_page is not None:
             # Build Performance > Overview's cards now (one per device), so the
             # window's minimum size is right from the start, not after the first update.
@@ -348,11 +371,11 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             self.resize(1000, 680)
         start = settings.get("start_page", "last")
-        titles = [p.title for p in self.pages]
+        titles = [c.title for c in self.page_classes]
         if start != "last" and start in titles:
             self.open_index(titles.index(start))
         else:
-            self.open_index(min(settings.get("last_page", 0), len(self.pages) - 1))
+            self.open_index(min(settings.get("last_page", 0), len(self.page_classes) - 1))
         self.tick()
 
     # ---------------------------------------------------------- layout --
@@ -368,11 +391,36 @@ class MainWindow(QtWidgets.QMainWindow):
         b._icon_name = icon_name
         return b
 
-    def _add_page(self, cls, nav):
-        page = cls(self)
-        idx = len(self.pages)
-        self.pages.append(page)
-        self.stack.add_page(page)
+    @property
+    def pages(self):
+        """The pages built so far."""
+        return [p for p in self._built if p is not None]
+
+    def page_count(self):
+        return len(self.page_classes)
+
+    def page_at(self, idx):
+        """The page at stack index *idx*, built now if it wasn't yet."""
+        page = self._built[idx]
+        if page is None:
+            page = self._built[idx] = self.page_classes[idx](self)
+            self.stack.add_page(page, idx)
+            replace_widget(self.tools, self._toolbar_holder(page), idx)
+            self._apply_page_prefs(page)
+        return page
+
+    def page_of(self, cls, build=True):
+        """The page of class *cls* (built now unless build=False), or None."""
+        for i, c in enumerate(self.page_classes):
+            if issubclass(c, cls):
+                return self.page_at(i) if build else self._built[i]
+        return None
+
+    def index_of(self, cls):
+        return next((i for i, c in enumerate(self.page_classes) if issubclass(c, cls)), -1)
+
+    @staticmethod
+    def _toolbar_holder(page):
         holder = QtWidgets.QWidget()      # keeps each page's toolbar right-aligned
         hl = QtWidgets.QHBoxLayout(holder)
         hl.setContentsMargins(0, 0, 0, 0)
@@ -380,7 +428,14 @@ class MainWindow(QtWidgets.QMainWindow):
         tb = getattr(page, "toolbar", None)
         if tb is not None:
             hl.addWidget(_overflow_bar(tb))
-        self.tools.addWidget(holder)
+        return holder
+
+    def _add_page(self, cls, nav):
+        idx = len(self.page_classes)
+        self.page_classes.append(cls)
+        self._built.append(None)
+        self.stack.addWidget(QtWidgets.QWidget())     # placeholders until the page is built
+        self.tools.addWidget(QtWidgets.QWidget())
         if nav:
             it = QtWidgets.QListWidgetItem(icons.icon(cls.icon, theme.current["text"]), cls.title)
             it.setData(USER, idx)
@@ -392,7 +447,7 @@ class MainWindow(QtWidgets.QMainWindow):
         """Re-tint icons and the logo after a theme change."""
         col = theme.current["text"]
         for it in self.nav_items:
-            it.setIcon(icons.icon(self.pages[it.data(USER)].icon, col))
+            it.setIcon(icons.icon(self.page_classes[it.data(USER)].icon, col))
         for b in (self.settings_btn, self.theme_btn, self.menu_btn):
             b.setIcon(icons.icon(b._icon_name, col))
         dpr = self.devicePixelRatioF() if hasattr(self, "devicePixelRatioF") else 1.0
@@ -455,7 +510,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.settings["nav_collapsed"] = collapsed
         self.side.setFixedWidth(56 if collapsed else 220)
         for it in self.nav_items:
-            title = self.pages[it.data(USER)].title
+            title = self.page_classes[it.data(USER)].title
             it.setText("" if collapsed else title)
             it.setToolTip(title if collapsed else "")
         if hasattr(self, "_section_item"):
@@ -543,8 +598,8 @@ class MainWindow(QtWidgets.QMainWindow):
     def open_page(self, cls):
         """Show the page of class *cls*, with its sidebar entry highlighted
         (pages without one, like Settings, leave nothing highlighted)."""
-        for i, p in enumerate(self.pages):
-            if isinstance(p, cls):
+        for i, c in enumerate(self.page_classes):
+            if issubclass(c, cls):
                 item = next((it for it in self.nav_items if it.data(USER) == i), None)
                 if item is not None:
                     self.nav.setCurrentItem(item)       # also shows the page
@@ -685,9 +740,9 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.status_rec.setText(fmt.duration(el).rjust(8, "0"))
 
     def _show_page(self, idx):
+        page = self.page_at(idx)
         self.stack.setCurrentIndex(idx)
         self.tools.setCurrentIndex(idx)
-        page = self.pages[idx]
         self.page_title.setText(page.title)
         self.settings["last_page"] = idx
         page.activate()
@@ -741,17 +796,7 @@ class MainWindow(QtWidgets.QMainWindow):
                              smooth=s.get("graph_smooth", False), points=int(s.get("graph_points", 60)),
                              display=s.get("color_display", "color"),
                              saturation=int(s.get("color_saturation", 11)), glow=int(s.get("color_glow", 0)))
-        # row density for the tables (the tree views follow the style sheet padding)
-        rh = {"compact": 22, "comfortable": 32}.get(s.get("density", "normal"), 26)
-        for t in self.findChildren(QtWidgets.QTableView):
-            t.verticalHeader().setDefaultSectionSize(rh if t.property("big") else rh - 2)
-        for w in self.findChildren(QtWidgets.QWidget):     # repaint custom-drawn meters
-            if type(w).__name__ in ("LedBar", "CpuPlot", "MemPlot", "TextHeader"):
-                w.update()
-        for g in self.findChildren(widgets.Graph):
-            if not g.mini:
-                g.set_points(widgets.GRAPH["points"])
-            g.update()
+        self._apply_page_prefs(self)
         # notification-area icon
         want_tray = bool(s.get("tray_icon")) and extras.TrayIcon.available()
         if want_tray and self.tray is None:
@@ -777,6 +822,22 @@ class MainWindow(QtWidgets.QMainWindow):
         for p in self.pages:
             if p.isVisible() and hasattr(p, "refresh") and getattr(p, "live", False):
                 p.refresh(self.snapshot)
+
+    def _apply_page_prefs(self, root):
+        """Table row density and graph length for the widgets under *root*
+        (the whole window, or a page that was just built)."""
+        from . import widgets
+        # row density for the tables (the tree views follow the style sheet padding)
+        rh = {"compact": 22, "comfortable": 32}.get(self.settings.get("density", "normal"), 26)
+        for t in root.findChildren(QtWidgets.QTableView):
+            t.verticalHeader().setDefaultSectionSize(rh if t.property("big") else rh - 2)
+        for w in root.findChildren(QtWidgets.QWidget):     # repaint custom-drawn meters
+            if type(w).__name__ in ("LedBar", "CpuPlot", "MemPlot", "TextHeader"):
+                w.update()
+        for g in root.findChildren(widgets.Graph):
+            if not g.mini:
+                g.set_points(widgets.GRAPH["points"])
+            g.update()
 
     def quit_for_real(self):
         self._quitting = True
@@ -1057,15 +1118,18 @@ class MainWindow(QtWidgets.QMainWindow):
             self.datarec.stop()
         if self.remote:
             self.remote.stop()
-        self.settings["geometry"] = bytes(self.saveGeometry().toHex()).decode()
-        for p in self.pages:
-            if hasattr(p, "save_state"):
-                p.save_state(self.settings)
-        try:
-            settings_mod.save(self.settings)
-        except OSError:
-            pass
+        if self.save_on_close:
+            self.settings["geometry"] = bytes(self.saveGeometry().toHex()).decode()
+            for p in self.pages:
+                if hasattr(p, "save_state"):
+                    p.save_state(self.settings)
+            try:
+                settings_mod.save(self.settings)
+            except OSError:
+                pass
         super().closeEvent(e)
+
+    save_on_close = True        # --self-test turns this off so it leaves the user's settings alone
 
     def summon(self):
         self.setWindowState(self.windowState() & ~E(Qt, "WindowState", "WindowMinimized"))
